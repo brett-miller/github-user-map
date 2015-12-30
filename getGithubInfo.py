@@ -1,23 +1,54 @@
 import httplib
 import urllib
 import json
+import time
+import base64
 
-headers = {"Content-type": "application/json","Accept":"application/vnd.github.v3+json","User-Agent":"brett-miller"}
+headers = {"Content-type": "application/json","Accept":"application/vnd.github.v3+json","User-Agent":"get-github-userinfo"}
+# userCreds=open('credentials.txt','r').read()
+# headers['Authorization']='Basic %s' % base64.b64encode(userCreds)
 
-conn = httplib.HTTPSConnection("api.github.com")
-conn.request("GET", "/search/repositories?q=npm%20install+language:JavaScript&sort=stars&order=desc", urllib.urlencode({}), headers)
-response = conn.getresponse()
-print response.status, response.reason
-data = json.loads(response.read())
-# print data['items'][0]
-print data['items'][0]['contributors_url']
-conn.close()
+def getRepos(pageNumber):
+	conn = httplib.HTTPSConnection("api.github.com")
+	conn.request("GET", "/search/repositories?q=npm%20install+language:JavaScript&sort=stars&order=desc&per_page=100&page=pageNumber"+str(pageNumber), urllib.urlencode({}), headers)
+	response = conn.getresponse()
+	print 'getRepos',response.status, response.reason
+	if response.status !=200:
+		print response.read()
+		return []
+	data = json.loads(response.read())
+	# print data['items'][0]
+	conn.close()
+	return data['items']
 
-conn = httplib.HTTPSConnection("api.github.com")
-conn.request("GET", "/repos/Medium/phantomjs/contributors", urllib.urlencode({}), headers)
-response = conn.getresponse()
-print response.status, response.reason
-data = json.loads(response.read())
-# print data['items'][0]
-print data
-conn.close()
+def getContributers(url):
+	conn = httplib.HTTPSConnection("api.github.com")
+	conn.request("GET", url, urllib.urlencode({}), headers)
+	response = conn.getresponse()
+	print 'getContributers',response.status, response.reason
+	if response.status !=200:
+		print response.read()
+		return []
+	users = json.loads(response.read())
+	# print data['items'][0]
+	conn.close()
+	return users
+
+allUsers=[]
+repos={}
+for index in range(0,5):
+	newRepos=getRepos(index)
+	for repo in newRepos:
+		repos[repo['url']]=repo
+		users=getContributers(repo['contributors_url'])
+		repos[repo['url']]['contributers']=users
+		allUsers.extend(users)
+		time.sleep(2)
+
+outfile=open('allRepos.json','w')
+outfile.write(json.dumps(repos))
+outfile.close()
+
+outfile=open('allContributers.json','w')
+outfile.write(json.dumps(allUsers))
+outfile.close()
